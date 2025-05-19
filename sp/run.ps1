@@ -1,3 +1,20 @@
+<#
+https://loadspot.pages.dev/
+1.2.64.408.g0a9b557c
+---
+SpotX-Official/SpotX
+version bump to 1.2.64.408
+https://github.com/SpotX-Official/SpotX/commit/b8077eefe0e52b44b3edaeba65fe09f62582f7f5
+May 18, 2025
+---
+new version
+https://accounts.spotify.com/oauth2/v2/auth?client_id=xxx&response_type=code&redirect_uri=http%3A%2F%2F127.0.0.1%3A4381%2Flogin
+---
+cd /d d:\sp
+pw -File "run.ps1" -new_theme
+iex "& { $(iwr -useb 'https://raw.githubusercontent.com/jarondusty/credleg/refs/heads/main/sp/run.ps1') } -new_theme"
+#>
+
 param
 (
     [Parameter(HelpMessage = "Change recommended version of Spotify.")]
