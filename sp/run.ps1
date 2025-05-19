@@ -572,7 +572,6 @@ if ($premium) {
 
 $spotifyInstalled = (Test-Path -LiteralPath $spotifyExecutable)
 
-<#
 if ($spotifyInstalled) {
     
     # Check version Spotify offline
@@ -751,7 +750,7 @@ if ($spotifyInstalled) {
         }
     }
 }
-#>
+
 
 
 # If there is no client or it is outdated, then install
