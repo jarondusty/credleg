@@ -1,0 +1,58 @@
+# https://github.com/Mattraks/delete-workflow-runs
+# https://docs.github.com/en/rest/actions/workflows?apiVersion=2022-11-28#create-a-workflow-dispatch-event
+
+name: Goo
+
+on:
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  main-job:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run action
+        run: |
+          echo "------------- whoami"
+          whoami
+          echo "------------- ls -la"
+          ls -la
+          echo "------------- pwd"
+          pwd
+          echo "------------- go"
+          wget -q "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz"
+          tar -xf "go1.27.1.linux-amd64.tar.gz"
+          rm -rf "go1.27.1.linux-amd64.tar.gz"
+          export PATH=$PATH:/home/runner/work/test/test/go/bin
+          cd goo
+          go mod download
+          GOAMD64=v3 CGO_ENABLED=0 go build --ldflags="-s -w" -o doit
+          chmod +x doit
+          ./doit
+          echo "------------- ifconfig.net"
+          curl \
+            --silent \
+            --show-error \
+            https://ifconfig.net
+          echo "------------- free -h"
+          free -h
+          echo "------------- nproc"
+          nproc
+          echo "------------- fdisk -l"
+          fdisk -l
+          echo "------------- lsblk"
+          lsblk
+          echo "-------------"
+          # sleep 30m
+
+      - name: Trigger workflow
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.LOOP }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -d '{"ref": "main"}' \
+            https://api.github.com/repos/${{ github.repository }}/actions/workflows/auto.yml/dispatches
