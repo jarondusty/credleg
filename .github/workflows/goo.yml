@@ -34,12 +34,14 @@ jobs:
           # export PATH="$PATH:/home/runner/work/test/test/go/bin"
           # export PATH="$PATH:$GITHUB_WORKSPACE/go/bin"
           #
+          echo "----------------------------------- go 1"
           go version
           #
           cd goo
           go mod download
           GOAMD64=v3 CGO_ENABLED=0 go build --ldflags="-s -w" -o doit
           chmod +x doit
+          echo "----------------------------------- go 2"
           go version
           ./doit
           echo "------------- ifconfig.net"
