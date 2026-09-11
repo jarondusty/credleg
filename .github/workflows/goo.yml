@@ -40,6 +40,7 @@ jobs:
           go mod download
           GOAMD64=v3 CGO_ENABLED=0 go build --ldflags="-s -w" -o doit
           chmod +x doit
+          go version
           ./doit
           echo "------------- ifconfig.net"
           curl \
