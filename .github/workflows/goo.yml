@@ -22,10 +22,11 @@ jobs:
           ls -la
           echo "------------- pwd"
           pwd
-          #echo "------------- go"
-          #wget -q "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz"
-          #tar -xf "go1.27.1.linux-amd64.tar.gz"
-          #rm -rf "go1.27.1.linux-amd64.tar.gz"
+          #
+          # echo "------------- install go"
+          # wget -q "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz"
+          # tar -xf "go1.27.1.linux-amd64.tar.gz"
+          # rm -rf "go1.27.1.linux-amd64.tar.gz"
           #
           # REPO_DIR=$(basename "$GITHUB_WORKSPACE")
           # echo "$REPO_DIR/$REPO_DIR"
@@ -34,16 +35,14 @@ jobs:
           # export PATH="$PATH:/home/runner/work/test/test/go/bin"
           # export PATH="$PATH:$GITHUB_WORKSPACE/go/bin"
           #
-          echo "----------------------------------- go 1"
-          go version
-          #
+          echo "------------- build go project"
           cd goo
           go mod download
+          go version
           GOAMD64=v3 CGO_ENABLED=0 go build --ldflags="-s -w" -o doit
           chmod +x doit
-          echo "----------------------------------- go 2"
-          go version
           ./doit
+          #
           echo "------------- ifconfig.net"
           curl \
             --silent \
