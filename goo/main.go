@@ -1,7 +1,6 @@
 package main
 
 import (
-	// cpu
 	"os/exec"
 	"strconv"
 	"strings"
