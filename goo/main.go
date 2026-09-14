@@ -335,8 +335,10 @@ func main() {
 	go gogo()
 	go gogo()
 
-	// time.Sleep(time.Second * 10)
-	// cpu()
+	time.Sleep(time.Second * 10)
+	cpu()
+	time.Sleep(time.Second * 10)
+	cpu()
 
 	// stop := make(Sigi)
 	stop := make(chan struct{})
