@@ -2,6 +2,8 @@ package main
 
 import (
 	"os/exec"
+	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 
@@ -10,263 +12,241 @@ import (
 	"log"
 	"time"
 
+	"github.com/btcsuite/btcd/address/v2"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/chaincfg/v2"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
 type Sigi chan struct{}
 
-const dur = time.Duration(time.Microsecond * 10)
+const dur = time.Duration(time.Microsecond * 20) // 500 - 50
 
-var wal [][20]byte
-var addresses = []string{
-	"0xD4b38FCdD3985E9303d3a905252A023a6Ed766E3",
-	"0x4f46a7eC706791b519ea75FE9F760871F26f5882",
-	"0x9515b00636985bAA376ad187c8b50524d267176D",
-	"0x5BE21Dd3bE83A6cD17F7fA04573bEE43Bd4537AC",
-	"0xD27376B8fBA9c499C3f7DD482E55091aC3f69901",
-	"0x2869104C3538E025DCE9e1c828F7F87b1caFcfb2",
-	"0xcebc332824a2236B3EceE0Ba6eA5E8eBCE396796",
-	"0xC7ce658EBfF23EDdc948a844B684D84942a16DB2",
-	"0x1E4D0C7E33fC3b21B0F36cf0B0E678111a7F0577",
-	"0x8c4283EaE268222B345111d01789Ae2370638cC4",
-	"0xf90A0d48663109D10d3d85ACDb351079A147ae65",
-	"0xcB9452e91c0fC8f5Fd19cDdB6A426A4dAa7714Bc",
-	"0x2E518334EEEa5574B7F36abEE25DC95B530BBe88",
-	"0x203FB5Cf023fd8C01463114b809C01Ae00F6a3f8",
-	"0x0af55360cF7a3c12C7A006362e0D9143886C3721",
-	"0x7e4fF62d3ce679a2749C492Cd5EC080B10eA4777",
-	"0xd257A723b6e77F38Db1F7A62a2abc7d954A82015",
-	"0x05C59c4702D360697fCEFdd148648a375f5a65c2",
-	"0xB7cfb380D5a7884a5F7f1e66c7A973A314512DCf",
-	"0x3DF51217493E8e7fabfE7d8A841d5b2A401D9119",
-	"0x6843E9D53af732985e9aF951f7f167ecEc3a9fb0",
-	"0xCd9fC599C26199d781f4B525BAdadf5718eB5566",
-	"0x24b0FEd204BDC803e96C9C630EEb383424438a36",
-	"0x58Bc302d6b052fe802e4809F470a80Ef9784FBbC",
-	"0x3f8695899469de99F80178731e82766254f418E8",
-	"0xc0E196768109dCDAB0441560D1313ffFf0d48e09",
-	"0xA4d5277D9FFE79726E12107B77CA0AEf28535D05",
-	"0x08A07ACeB18A1ACCa79934ee368D751b71E76698",
-	//
-	"0x62FdF8b681eC45105B6aF18c2B5f25B4FF399eA0",
-	"0x33aAf3c3720F62F01ACE04D97e8FDe0b756E8849",
-	"0x35161d634802F5960F4945269d25D8E475A77c94",
-	"0x3E367E2bA1f8a87C9cc59e68204F899934afB90F",
-	"0xd845A5159e2c90E1A9fF2ca0E19a1af0BC751a6E",
-	"0x4240FA2ea4Ba2598A0442B281a96A2AC4fca3836",
-	"0x046A8794A9E82c310B844f0af216d1d9295054e7",
-	"0xf63feF2DFcb5154dE601d81cd9aB0c5fA55174Bb",
-	"0x69D35B7d020175b0303FD34B32b478fE1b06e300",
-	"0xAa7f079A2df52F86Aa2898673884523F56AAa669",
-	"0x59ad3db6Ab4172B85f90BF756dEC26fcBB1F8C1A",
-	"0x6232792Ac31C2b8DcD5EE9C5cA4f1C8A04A352E7",
-	"0xCFE430c5cBc3D578D4c7B4d3b73AC91D56fb3D57",
-	"0x48Fddc53A6E51cD611d5a3162Fb773D1cfd9816A",
-	"0x72bE417AFB0aBEa66913141C605D313BB389b59C",
-	"0x08C049F958E7d1f1b7ae44466b80d7773cA09c8e",
-	"0x3CDA3aA0C2579E0479386B55f0E0E6694504151f",
-	"0x5e0D10C370913cEc0D528F87Eaadbcc2ad5E1059",
-	"0x7d5e00c155B1E061AB7E760D1eE9f0b65561a223",
-	"0x4FAAca1DE8a1E0DBb171443A4cdf0323ac9Dd630",
-	"0x2Fa374c196cf637b8ab664BAc8005D6Bb16c08CF",
-	"0x278Cad86f4b2C895bf4E897e0C50c2eaA7c519f0",
-	"0xb026BA5501c9fcDB5b4B746c37e349cd61B81B22",
-	"0x8da91A6298eA5d1A8Bc985e99798fd0A0f05701a",
-	"0xf76F5123C6B1C49C21adc8903Cc571bD875EEa4B",
-	"0x02C79843B9548fC0Cb4B35Bf6840538a73fC3422",
-	"0x0Bdca6aA876d9e5C5c6C27C0ecFa9A78ca6cA0A3",
-	"0x255FBF4351683902Ccb4d32f76987B886Cc927bd",
-	"0x273c766d992A335B5A7C56BA41aCf9AD85434877",
-	"0x2C0ecF1935b150d1Cc63cED67AcA7113322f2f9A",
-	"0x7ad7AbBbDf1DB119bDB47C97cF6F8c6541c8E79d",
-	"0x7d72F952824C9634229aCeB9C0c328E1dD4e66Fc",
-	"0x97C8AF121d33045af0b6baa7248fdA19be01E3C1",
-	"0xB1869742993baC1104a8e13e907211dbd4a757AA",
-	"0x3F3750a5a8c874c639ce30812A9B162aAA9d9c29",
-	"0x8fA6d6b71Ec56b8558895Cdb022329A25B84530D",
-	"0xaac391f166f33CdaEfaa4AfA6616A3BEA66B694d",
-	"0x2dc43d3404871a8235F3aA82bFfD82c72A7743b6",
-	"0x14C8625A6d524F5122e127582b90A2Fe780d1931",
-	"0x16D3209901173f78C60a64071aD1E3Be5F70e3d5",
-	"0x655f4f2CD57e7104d001F5f2aE6dD5F821fb4c5d",
-	"0x00F5a569C1529535A6148C05040d9d285bd1753F",
-	"0x6A8b792DB7C6Cff061f721c5F3791A654ee1c9c6",
-	"0xE4caBCb27575E01343EbFa8dE82bFE5fc8908aEd",
-	"0x943C3B3aEe55aB6cC16c559c48B085cd60167203",
-	"0x09289a1105fFa122faA0836fBa1ce3eb613f2291",
-	"0xeC408D0CA3d866D1A545d6016C89e415fC359CD1",
-	"0x0693C23e5D7322837Ca9e73c09dc7657Acf54017",
-	"0x755bc7104b98EA061197bE76D1E49fA84e3E702f",
-	//
-	"0xd9858d573A26Bca124282AfA21ca4f4A06EfF98A",
-	"0x4eac9CE57Af61A6fB1f61f0BF1D8586412bE30Bc",
-	"0x999E77c988C4C1451d3B1c104a6cca7813A9946E",
-	"0xbEd96D0840201011dF1467379a5D311E0040073a",
-	"0x08E881B3d360a67a07bAf47588373164AC29277D",
-	"0x0100Dc5672F702E705fc693218a3AD38FEd6553D",
-	"0x8AE880b5D35305Da48b63CE3e52B22D17859f293",
-	"0x7D9557F7ceC9A8077379E6235CfCC60b93E2ef11",
-	"0xa1a45e91164cDab8FA596809a9B24f8d4FDBE0F3",
-	"0xAFa2A89CB43619677d9C72E81f6d4c8a730a1022",
-	"0x6073Cf6D98404319F035D368541c765C06354169",
-	"0x1b3cB81E51011b549d78bf720b0d924ac763A7C2",
-	"0x0e131e840e46430071A08E221B093743eD69e00B",
-	"0x7021A963D57d6AcF1bCddC61F88Df11524D9D0c7",
-	"0xe2FDb9259C8F55FC0A3b10e1c61E1B38c92C068B",
-	"0xbc748540dB5c76335D324D353f6903e9Cf77C65D",
-	"0xf64BB4f4dd1De57bc5fbce1d9a49aF60AD0fE1A6",
-	"0x286Ddd7a309214f947dbaAfBD086ab873Aa6361f",
-	"0xe21C0Ee823E46F6e39d901a13fa1244ccbac47bd",
-	"0xbF3aEB96e164ae67E763D9e050FF124e7c3Fdd28",
-	"0x5d71f4D4f6048112a3B21433fbcfBa5F1f39549f",
-	"0x03D615c04BE905790DbEf2df0472a2E901ccD810",
-	"0xf29C6705F188526E0029A92EE6bc21Ebc750b675",
-	"0xdA29aCcfb77995bEf70bcf6478A73E9acb07732D",
-	"0x22A54a1eb8C573BBF845DD1FF64c8DF05502c1b0",
-	"0x9B07c94f1D39D24B68DA8fF7c78ADB8B70238A75",
-	"0xA580E49df5d054D69Cf1b2EF4aF847c6e6F64D30",
-	"0x62a4eD560Fe03ec461a424e08101B05f069F1fE3",
-	"0x6586ce3d543e0C57B347f0C3B9eeeD2f132c104f",
-	"0xbDaF35bf3E0FBd7f6e0B6605F0466bE20c2B0C86",
-	"0xFB4ABaF0Ec5aeBAdD47E40533F96EA17f4eff184",
-	"0xBA293885c8fCa326C1Ca6D96F44A4F36641495dA",
-	"0xb46427e2CDDeCB0BdE40bf402361EFFDDd4401E2",
-	"0x2fD56159F4C8664a1de5c75E430338CFa58cd5b9",
-	"0xbE2ec156292587338d4e9F80F5439e6152d56FC5",
-	"0x8f1aAE22d0B4335945950D0BBd0f3743D3FC6F22",
-	"0xd049E4DdF1133AF3A7A27390B4c9018141Df1A49",
-	"0xfad70Cb84e104817a7E9345D25Ed0d3048af2D2D",
-	"0x7a91e803Db0E58b6Fecc4E42c86B366778475E3c",
-	"0xF683b33e21E85ee6c0E25Af2ffF5B2B115F32617",
-	"0xC39cC669a548C661dFa6b5a1eeAa389D1ec53143",
-	"0xd2b0b1DAeD605718080F861034D3241F1CFD89cB",
-	//
-	"0x5a2359eD6b85dfF428F36c22d0DB98Be3b1aC9Da",
-	"0x9ea80Dbb8b1Cd9861B7a9eFf5972317067895Ea3",
-	"0xEE24fAe0E09aE648d415F3F02F872414493b1f02",
-	"0xD1deC1BF6064Ba88ADf5f289d804d9eB08662662",
-	"0x229e8F831d65022c03c699F5C1D72405Cac78d21",
-	"0xF8970D1574B2FE87b75e8Ceac4B723eD490DF2b9",
-	"0xDdb0d7246AEFfffc458EA0D5952347313aa0B392",
-	"0x4920F22B632bFAa40aF8D39C31D9607809485952",
-	"0x282eDaB8a933Bc1c02649FE3Ea2842eCbE9928A7",
-	"0xeC6A76e74B9A5aD49EDa0aa63b91c2c53cB65A9C",
-	"0x34753FbFbE9154B996bba4200829b4449EA24c4C",
-	"0xa6c3a9abcA3B67B51EFb860FDc60A15467a15c46",
-	"0x958c449491608B20ecc6D23e708Fa0adA693E1FF",
-	"0xa43D2e05Ed00c040C8422A88CB8eDe921A539f92",
-	"0xC263058778daeACFA39BD47c4fdBa8d46FEF54F7",
-	"0x28cC933fecf280E720299b1258e8680355D8841F",
-	"0x517CE9b6D1FcFfD29805C3E19b295247FCd94AeF",
-	"0x64576fFB211e1421992D41639871e4AA2e5fd25F",
-	"0x2842eb68fcD748e92ACb44d82a9E315FC7Dc650D",
-	"0x5b16FdA29C71De07d5E0610c112E16A64bAAffB0",
-	"0xA072DCF6BEC138ddB4874F9e6bDb8B10cb3F831f",
-	"0x78c0AF37A8348434f168F5A88969A8A5EC0Bbac2",
-	"0x05576087D1AD92873DA0A3b76E7105195935b0F5",
-	"0x7c2a289c0523e748c286A37570D2efc16d2C934e",
-	"0xB8a5405fE1938b3b0a0F807fb9DDC4b7FD9a29DF",
-	"0xa4293Fadc7Cd57db4DDf830b7a7Fd5b172b2d971",
-	"0x0a4c79cE84202b03e95B7a692E5D728d83C44c76",
-	"0xf54b1F97488fB1902dd606e0C499847605BdDdDB",
-	"0x76eC5A0D3632b2133d9f1980903305B62678Fbd3",
-	"0x8944bf4b8814150AAee13481c2782FA92Ca47E28",
-	"0x4AF3548A652F343Dfa06399d1e1d09C679Dc9D30",
-	"0x43684D03D81d3a4C70da68feBDd61029d426F042",
-	"0xc0872B3240aD6b11a8A848711096241E59242E0d",
-	"0x12ECe657a5Af6681FebdE057e65036930db73A86",
-	"0x7975b7445E445906933cA30b6D6641157D6f7552",
-	"0xa4974bfa65176a8F65A1511339d79a331E55172b",
-	"0xA7B4AEB3cAe726B149033C0dB13a2386B49FbeE4",
-	"0x7c9863f0921bBe3af35Be070612b292F511738a0",
-	"0xE8512274eC70446D8BDe7fc1FFC4645c5EE29F6B",
-	"0x5d76863Fa3b2891eC3E915dEe9b21ff2AFB61e18",
-	"0x134E80c026ad00B997720A248CB6719FD387731E",
-	"0xA13832009A5f091a078174EA12562Ea0d882cA68",
-	"0xe3f53355cdbEAf2afafC4Fc22be0A5C02570061A",
-	"0x922dff198125BdCb54AF0EdB951B8f8c711E1538",
-	"0x62EA432d321AD5aa74551486E2Fe2e593a27DE25",
-	"0x00E2565F6D6712fD31a8469cE543200c09b40dbB",
-	"0xCD4F95584E8657790A651249562117C78022Dcc6",
-	"0xE5D0DB0732226625dAe4bFC80cB8106Dd479a85f",
-	"0xe5ecb1D3Ba0e89D2AfA32949BBD8D95629AB29F9",
-	"0xb0ba3832BBD49788107e38DF3D20F04FeA2705E5",
-	"0xbB3ECcB8f8279A2139FB14f65b87699AdEDdE202",
-	"0xf64F59B0DC3df5A0F4dcf30224E1653e2DD89D3B",
-	"0x9ff7104155d1a8c4d20494B48853C2ecBCCc7F30",
-	"0xBEa9f7FD27f4EE20066F18DEF0bc586eC221055A",
-	"0xFE9Ad7e2f278efC0c6B2d991B94ae553e217d842",
-	"0x8a48813BAE7687C3086ff906C6FFBc091CE4a82d",
-	"0x274E303399fAaF3cEFe5c3B1515d19703103F145",
-	"0x4A53eA9f81E85879bD9a83b77928eC269bF63c77",
-	"0x1A33A65ebC9E41934005e838453eA6D6728dEa88",
-	"0x897f6e41cA27893c49C489c3fb7434c0Ef8d9E1f",
-	"0x13DB3D64586242E983a4501A217E73912015aD6B",
-	"0x1B8766d041567EeD306940c587e21C06aB968663",
-	"0x70213959A644BaA94840bbfb4129550bceCEB3c2",
-	"0x8696e84aB5e78983f2456bCB5c199eEa9648C8C2",
-	"0xcEFFC7330317f72957C662D072A5E7D63B9b578C",
-	"0xb2c97aFB4b98b4732763Ecce1e825b8c42449779",
-	"0xf0E21fF51a6F0b958ec65F48818A8d1130d2FF7c",
-	"0x0C7f3522E24c04B9571aFE67b1E1E68D193809F0",
-	"0xfD7561238Ea05e1b6Fbe9bDf3219Eea125c4dA3E",
-	"0xD12057D74d09D697c4DD670B12315a40BB0fCB02",
-	"0xe67A1E81Faec93e81FA1D03D24c171C50a1823D6",
-	"0xc160D0e92786688E8D7345C82988bB6B81d2887d",
-	"0x96913c0F03effDA349A84641F148DfF11CB4Fe3d",
-	"0x50CB0508434B4c68A2C4fDE30B02B269d2D5B6BD",
-	"0x5A03703125380cfDA804446FdAa3b4064Cb6CC0a",
-	"0x565B8FbF9336BeC8FbFb4F78fBf30D7f70D6973b",
-	"0xe780A56306ba1E6bB331952C22539b858af9F77d",
-	"0x949103b9Aa2957d5BB82760c61593485F984Cd7d",
-	"0x673E4AAe7f47a8303753433d1Cc9Fd72C6E46946",
-	"0xbfCA8Da09f3DC0572Fda841f80d95B847B8e2c70",
-	"0xa18eB0Ed2543Be132eF5Aa3c8a87A0F5b2E30fCA",
-	"0xF4E6DEEA1B4DA85C2d68DB8d771d37EC1148B853",
-	"0x1e747fB111Ba949aF397B15cBCeb424D3F19d8a6",
-	"0x1E547Eb395ac9C3EC41704ba85777dBCDd359DE5",
-	"0xbeD1EB542f9a5aA6419Ff3deb921A372681111f6",
-	"0xc8F4B2703859cAcfA58cbFEB0a5d3A26b212EE8E",
-	"0x50bD66bfDdF48B8914602BF51c93756731ec51Ae",
-	"0xee471215e428C08Ba69751627E5f6761BBa7AE18",
-	"0xb926C9968090B59b192048caeD4bd9637882E895",
-	"0x5eE84D30c7EE57F63f71c92247Ff31f95E26916B",
-	"0x9427c397144098Be4d901E76Dd449F86872e96C4",
-	"0xF9A345948C9f31B225686aB8911140b0E2BcDCa8",
-	"0x70773129acA50D298631283e137473AB8FfC0177",
-	"0x1AC33F385A4E9FE2d809A81c5c10473f81Ee0ED3",
-	"0x42697cC8CB495aEbD453D016950344867D51F27E",
-	"0xC963Eb5b4c9E1d9251D012373c3D430F066bCdeC",
-	"0x888377dd28F99fb80f5d38b412c60B6749EBA3AA",
-	"0x90f9dff16f9efaFeeB8b130dc5D3562ac5E76A96",
-	"0xE19eD11103265687a351662aAb588a890eC598B4",
-}
+var wallet_eth [][20]byte
+var wallet_btc_legacy [][20]byte
+var wallet_btc_segwit [][20]byte
 
 func gogo() {
-	for {
-		time.Sleep(dur)
+	// const target int = 100_000
+	// var count int = 0
 
-		privateKey, err := crypto.GenerateKey()
+	// 0x0000000000000000000000000000000000000000000000000000000000000001
+	// 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364140
+
+	// bibi := common.FromHex("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141")
+	// bibi := common.FromHex("0x00000000000000000000000000000000000000000000000000000000000F4241")
+
+	// Increment the 32-byte big-endian private key by 1
+	/*
+		for i := len(bibi) - 1; i >= 0; i-- {
+			bibi[i]++
+			if bibi[i] != 0 { // no carry, stop
+				break
+			}
+			// if bibi[i] == 0, carry overflows to next byte
+		}
+	*/
+
+	/*
+		// Use crypto.ToECDSA instead of crypto.BytesToECDSA
+		pv_key, err := crypto.ToECDSA(bibi)
 		if err != nil {
-			log.Fatalf("failed to generate wallet: %v --- pv: %v", err, privateKey)
+			panic(err)
 		}
 
-		address := crypto.PubkeyToAddress(privateKey.PublicKey)
+		address := crypto.PubkeyToAddress(pv_key.PublicKey)
+		fmt.Println("BASE Address:")
+		fmt.Println(address.Hex())
 
-		for i := range wal {
-			if bytes.Equal(address.Bytes(), wal[i][:]) {
-				fmt.Println("BASE Address:")
-				fmt.Println(address.Hex())
+		fmt.Println(len(bibi)) // 32
+		fmt.Printf("New private key: %x\n", crypto.FromECDSA(pv_key))
+	*/
 
-				privateKeyBytes := crypto.FromECDSA(privateKey)
-				fmt.Println("Private Key:")
-				fmt.Printf("%x\n", privateKeyBytes)
+	/*
+		privKeyHex := "D4b38FCdD3985E9303d3a905252A023a6Ed766E3D4b38FCdD3985E9303d3a905"
+		pv_key, err := crypto.HexToECDSA(privKeyHex)
+		if err != nil {
+			panic(err)
+		}
+	*/
+
+	for {
+		// Increment by 1 (big-endian carry propagation)
+		/*
+			for i := len(bibi) - 1; i >= 0; i-- {
+				bibi[i]++
+				if bibi[i] != 0 { // no carry, stop
+					break
+				}
+				// if bibi[i] == 0, carry overflows to next byte
+			}
+		*/
+		// fmt.Printf("%x\n", bibi)
+
+		/*
+			if count == target {
+				fmt.Println(count)
+				count = 0
+			}
+			count++
+		*/
+
+		time.Sleep(dur)
+
+		eth_pv_key, err := crypto.GenerateKey()
+		if err != nil {
+			log.Fatalf("failed to generate wallet: %v", err)
+		}
+
+		// Extract the 32-byte private key.
+		pv_key_bytes := crypto.FromECDSA(eth_pv_key)
+		// fmt.Printf("Pv Key (Hex): %x\n", pv_key_bytes)
+
+		/*
+			// Create WIF (Wallet Import Format) for the private key
+			wif, err := btcutil.NewWIF(btc_pv_key, &chaincfg.MainNetParams, true)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Println("Bitcoin WIF:", wif.String())
+			// decoded, err := btcutil.DecodeWIF(wif.String())
+			// if err != nil {
+				// log.Fatal(err)
+			// }
+			// fmt.Printf("recovered key matches: %v\n", decoded.PrivKey.Key.IsEqual(btc_pv_key.Key))
+		*/
+
+		// os.Exit(0)
+
+		/*
+			// &{{{0x7ff6af887a98} 73998015398931895160925447812487945329780121186902292289458675663667965297380 112788643387266350953586197880308544936817796570924302280476914061909657218492} 65292721544155984129360524437952035770601771185068496619711178998335110874067}
+			// 905a5eeb779040801104577ba238c558ddb927c4282c850278db87fc974783d3
+
+			eth_pv_key, err = crypto.HexToECDSA("905a5eeb779040801104577ba238c558ddb927c4282c850278db87fc974783d3")
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			fmt.Println(eth_pv_key)
+			fmt.Printf("%x\n", crypto.FromECDSA(eth_pv_key))
+		*/
+
+		//
+		// eth
+		//
+
+		ad_eth := crypto.PubkeyToAddress(eth_pv_key.PublicKey)
+		for i := range wallet_eth {
+			if bytes.Equal(ad_eth.Bytes(), wallet_eth[i][:]) {
+				fmt.Println("Ad ETH:")
+				fmt.Println(ad_eth.Hex())
+
+				// pv_key_bytes := crypto.FromECDSA(eth_pv_key)
+				fmt.Println("Pv ETH:")
+				fmt.Printf("%x\n", pv_key_bytes)
+				fmt.Println()
+			}
+		}
+
+		//
+		// btc
+		//
+
+		// Convert the go-ethereum *ecdsa.PrivateKey to a btcd *btcec.PrivateKey
+		// The underlying curve (secp256k1) and scalar D are the same.
+		//
+		// btc_pv_key, btc_pub_key := btcec.PrivKeyFromBytes(pv_key_bytes)
+		_, btc_pub_key := btcec.PrivKeyFromBytes(pv_key_bytes)
+
+		// Get the compressed public key
+		compressed_pub_key := btc_pub_key.SerializeCompressed()
+
+		// Hash the compressed public key to get its Hash160
+		// This is exactly what you were doing with your code
+		//
+		new_hash160 := address.Hash160(compressed_pub_key)
+		// fmt.Printf("Hash160 (hex): %x\n", compressed_pub_key)
+		// fmt.Printf("len: %d\n", len(compressed_pub_key))
+
+		// legacy
+		//
+		for i := range wallet_btc_legacy {
+			if bytes.Equal(new_hash160, wallet_btc_legacy[i][:]) {
+				// Create a legacy P2PKH Bitcoin mainnet address.
+				addr_P2PKH, err := address.NewAddressPubKeyHash(new_hash160, &chaincfg.MainNetParams)
+				if err != nil {
+					log.Fatalf("Failed to create BTC Legacy ad: %v", err)
+				}
+				// fmt.Printf("Legacy BTC Address: %s\n", addr_P2PKH.EncodeAddress())
+
+				fmt.Println("Ad BTC Legacy:")
+				fmt.Println(addr_P2PKH.EncodeAddress())
+
+				// pv_key_bytes := crypto.FromECDSA(eth_pv_key)
+				fmt.Println("Pv BTC Legacy:")
+				fmt.Printf("%x\n", pv_key_bytes)
+				fmt.Println()
+			}
+		}
+
+		// segwit
+		//
+		for i := range wallet_btc_segwit {
+			if bytes.Equal(new_hash160, wallet_btc_segwit[i][:]) {
+				// Create a native SegWit P2WPKH Bitcoin mainnet address.
+				addr_P2WPKH, err := address.NewAddressWitnessPubKeyHash(new_hash160, &chaincfg.MainNetParams)
+				if err != nil {
+					log.Fatalf("Failed to create BTC SegWit ad: %v", err)
+				}
+				// fmt.Printf("P2WPKH BTC Ad: %s\n", addr_P2WPKH.EncodeAddress())
+
+				fmt.Println("Ad BTC SegWit:")
+				fmt.Println(addr_P2WPKH.EncodeAddress())
+
+				// pv_key_bytes := crypto.FromECDSA(eth_pv_key)
+				fmt.Println("Pv BTC SegWit:")
+				fmt.Printf("%x\n", pv_key_bytes)
 				fmt.Println()
 			}
 		}
 	}
 }
+
+/* func gogo_main() {
+	const target int = 100_000
+	var count int = 0
+
+	for {
+		if count == target {
+			fmt.Println(count)
+			count = 0
+		}
+		count++
+
+		time.Sleep(dur)
+
+		pv_key, err := crypto.GenerateKey()
+		if err != nil {
+			log.Fatalf("failed to generate wallet: %v - pv: %v", err, pv_key)
+		}
+
+		address := crypto.PubkeyToAddress(pv_key.PublicKey)
+
+		for i := range wallet_eth {
+			if bytes.Equal(address.Bytes(), wallet_eth[i][:]) {
+				fmt.Println("Ad ETH:")
+				fmt.Println(address.Hex())
+
+				pv_key_bytes := crypto.FromECDSA(pv_key)
+				fmt.Println("Pv ETH:")
+				fmt.Printf("%x\n", pv_key_bytes)
+				fmt.Println()
+			}
+		}
+	}
+} */
 
 func cpu() {
 	out, err := exec.Command("sh", "-c", `top -bn1 | grep "Cpu(s)" | awk '{print $8}'`).Output()
@@ -278,23 +258,85 @@ func cpu() {
 	fmt.Println()
 }
 
+func read_ads() {
+	// eth ads
+	for _, addr := range ads_eth {
+		var ad_bytes [20]byte
+		copy(ad_bytes[:], common.HexToAddress(addr).Bytes())
+		wallet_eth = append(wallet_eth, ad_bytes)
+	}
+
+	// btc legacy ads
+	for _, addr := range ads_btc_legacy {
+		// addr := "1LdRcdxfbSnmCYYNdeYpUnztiYzVfBEQeC"
+		ad, err := address.DecodeAddress(addr, &chaincfg.MainNetParams)
+		if err != nil {
+			log.Fatalf("Failed to decode ad: %v", err)
+		}
+		// Type-assert to AddressPubKeyHash to get the raw hash
+		ad_legacy, ok := ad.(*address.AddressPubKeyHash)
+		if !ok {
+			log.Fatalf("Address is not a P2PKH address")
+		}
+		// Get the raw 20-byte Hash160
+		hash160 := ad_legacy.Hash160()
+		// fmt.Printf("Hash160 (hex): %x\n", hash160)
+
+		var ad_bytes [20]byte
+		copy(ad_bytes[:], hash160[:])
+		wallet_btc_legacy = append(wallet_btc_legacy, ad_bytes)
+	}
+
+	// btc segwit ads
+	for _, addr := range ads_btc_segwit {
+		// addr := "bc1q0j55cut9nd2c88tnnsfultdx696c8lt6n4n0su"
+		ad, err := address.DecodeAddress(addr, &chaincfg.MainNetParams)
+		if err != nil {
+			log.Fatalf("Failed to decode ad: %v", err)
+		}
+
+		// Type-assert to AddressWitnessPubKeyHash to get the raw hash
+		ad_segwit, ok := ad.(*address.AddressWitnessPubKeyHash)
+		if !ok {
+			log.Fatalf("Address is not a P2WPKH address")
+		}
+		// Get the raw 20-byte Hash160
+		hash160 := ad_segwit.Hash160()
+		// fmt.Printf("Hash160 (hex): %x\n", hash160)
+
+		var ad_bytes [20]byte
+		copy(ad_bytes[:], hash160[:])
+		wallet_btc_segwit = append(wallet_btc_segwit, ad_bytes)
+	}
+}
+
 func main() {
 	fmt.Println("START")
 
-	for _, addr := range addresses {
-		var addrBytes [20]byte
-		copy(addrBytes[:], common.HexToAddress(addr).Bytes())
-		wal = append(wal, addrBytes)
-	}
+	// chunker()
+	// split()
 
+	read_ads()
+
+	runtime.GC()
+	debug.FreeOSMemory()
+
+	/*
+		N, _ := new(big.Int).SetString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141", 16)
+		total := new(big.Int).Sub(N, big.NewInt(1))
+		chunk_size := new(big.Int).Div(total, big.NewInt(32))
+		fmt.Println(chunk_size)
+	*/
+
+	fmt.Println("ADS DONE")
 	go gogo()
 	go gogo()
 	go gogo()
 	go gogo()
 	go gogo()
 
-	time.Sleep(time.Second * 10)
-	cpu()
+	// time.Sleep(time.Second * 10)
+	// cpu()
 
 	// stop := make(Sigi)
 	stop := make(chan struct{})
